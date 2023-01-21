@@ -1,2 +1,83 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+# Coursera - Practical Machine Learning - Course Project
 
-this is a test
+```{r}
+library(ggplot2)
+library(data.table)
+library(caret)
+library(corrplot)
+```
+
+# Import Data
+```{r}
+tst <- read.csv("pml-testing.csv")
+trn_orig <- read.csv("pml-training.csv")
+trn <- trn_orig
+```
+
+
+# Distribution of response
+Review distribution of the response variable.
+```{r}
+ggplot(trn, aes(x=reorder(classe, classe, function(x)-length(x)))) +
+geom_bar(fill='red') +  labs(x='Classe Response Distribution')
+```
+
+
+# Near Zero Variance Predictors
+Identify and remove near-zero-variance predictors as they do not contribute to the identification of patterns in the data.
+```{r}
+zeroVarIndices <- caret::nearZeroVar(trn)
+trn <- trn[, -zeroVarIndices]
+```
+
+# Remove Predictors with too many NAs
+```{r}
+trn <- trn[,colMeans(is.na(trn)) < .9]
+```
+
+
+# Reduce Collinearity
+##Plot Correlations
+```{r}
+trn_numeric <- trn[,sapply(trn, is.numeric)]
+correlations <- cor(trn_numeric)
+corrplot::corrplot(correlations, order = "hclust")
+```
+
+## Filter pairwise correlations
+```{r}
+highCorr <- findCorrelation(correlations, cutoff = 0.75)
+trn <- trn[, -highCorr]
+```
+
+The Variance Inlation Factor (VIF) can be used to identify collinear predictors. 
+
+
+
+
+# KNN
+```{r}
+pca_transformation <- 
+    caret::preProcess(trn, method = c("BoxCox", "center", "scale", "pca"))
+trn_pca_transformed <- stats::predict(pca_transformation, trn)
+trn_pca_transformed
+
+knn_model <- caret::train(classe ~ ., data = trn_pca_transformed, method = "knn")
+knn_model
+```
+
+
+# Scree Plot
+
+
+# CV
+The optimal number of components can be determined by cross-validation.
+
+
+# Plot Observed vs Predicted
+
