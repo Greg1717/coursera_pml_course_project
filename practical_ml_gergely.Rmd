@@ -1,11 +1,10 @@
 ---
 output: html_document
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 # Coursera - Practical Machine Learning - Course Project
-
-```{r}
+```{r echo=TRUE}
 library(ggplot2)
 library(data.table)
 library(caret)
@@ -13,71 +12,86 @@ library(corrplot)
 ```
 
 # Import Data
-```{r}
+```{r echo=TRUE}
 tst <- read.csv("pml-testing.csv")
 trn_orig <- read.csv("pml-training.csv")
 trn <- trn_orig
+dim(trn)
 ```
-
 
 # Distribution of response
 Review distribution of the response variable.
-```{r}
-ggplot(trn, aes(x=reorder(classe, classe, function(x)-length(x)))) +
+```{r echo=TRUE}
+ggplot(trn, aes(x=classe)) +
 geom_bar(fill='red') +  labs(x='Classe Response Distribution')
 ```
 
-
 # Near Zero Variance Predictors
-Identify and remove near-zero-variance predictors as they do not contribute to the identification of patterns in the data.
-```{r}
+Identify and remove near-zero-variance predictors as they do not contribute to the identification of patterns in the data. For this purpose we use function caret::nearZeroVar().
+```{r echo=TRUE}
 zeroVarIndices <- caret::nearZeroVar(trn)
 trn <- trn[, -zeroVarIndices]
+dim(trn)
 ```
+Of the originally 160 predictors 60 have been removed, 100 predictors remain.
 
-# Remove Predictors with too many NAs
-```{r}
+# Remove Predictors with too many NAs (missing data)
+```{r echo=TRUE}
 trn <- trn[,colMeans(is.na(trn)) < .9]
+dim(trn)
 ```
-
+41 columns with a high number of missing data have been removed. 59 predictors remain. 
 
 # Reduce Collinearity
-##Plot Correlations
-```{r}
+Collinearity is the situation where a pair of predictor variables have a substantial correlation with each other. In general, there are good reasons to avoid data with highly correlated predictors as it can result in highly unstable models and degraded predictive performance.
+## Plot Correlations
+The darker areas in the correlation plot show variables which are correlated with each other.
+```{r echo=TRUE}
 trn_numeric <- trn[,sapply(trn, is.numeric)]
 correlations <- cor(trn_numeric)
-corrplot::corrplot(correlations, order = "hclust")
+corrplot::corrplot(correlations, order = "hclust",tl.cex = 0.5)
 ```
 
 ## Filter pairwise correlations
-```{r}
+```{r echo=TRUE}
 highCorr <- findCorrelation(correlations, cutoff = 0.75)
-trn <- trn[, -highCorr]
+trn_numeric <- trn_numeric[, -highCorr]
+dim(trn_numeric)
 ```
-
-The Variance Inlation Factor (VIF) can be used to identify collinear predictors. 
-
-
-
+34 predictors remain after having removed correlated predictors.
+Review correlation plot again:
+```{r echo=TRUE}
+correlations <- cor(trn_numeric)
+corrplot::corrplot(correlations, order = "hclust",tl.cex = 0.5)
+```
+The darker areas have mostly disappeared as a result of having removed correlated predictors.
 
 # KNN
-```{r}
-pca_transformation <- 
-    caret::preProcess(trn, method = c("BoxCox", "center", "scale", "pca"))
-trn_pca_transformed <- stats::predict(pca_transformation, trn)
-trn_pca_transformed
-
-knn_model <- caret::train(classe ~ ., data = trn_pca_transformed, method = "knn")
+The model is trained with the KNN model. The standard bootstrap resampling will be applied with the standard setting of 25 repetitions. I preprocess the data in order to remove skewness, to center and to scale the data and to create principal components (on my 10 year old Macbook it takes about 5 minutes to run).
+```{r echo=TRUE}
+# add back 'classe'
+trn_numeric$classe <- trn$classe
+# train model
+knn_model <- caret::train(classe ~ .,
+                          data = trn_numeric,
+                          preProc = c("BoxCox", "center", "scale", "pca"),
+                          method = "knn")
+# print results
 knn_model
 ```
 
+```{r echo=TRUE}
+plot(knn_model)
+```
 
-# Scree Plot
+The plot of the KNN model shows that k = 5 provides the best result.
 
+# Predict on the Test Set
+```{r echo=TRUE}
+predicted_classe <- predict(knn_model, tst)
+predicted_classe
+```
 
-# CV
-The optimal number of components can be determined by cross-validation.
-
-
-# Plot Observed vs Predicted
+# Some Final Remarks
+I think the out of sample error rate should be very low given that the accuracy of the model is very high (97%) and the fact that the training data set is rather large should also contribute to a stable model. Bootstrap resampling was repeated 25 times which should also contribute to the high accuracy and to avoid over-fitting. 
 
