@@ -86,7 +86,7 @@ trn_numeric$classe <- train_set$classe
 if (!exists("rf_mod_fit")) {
     # initiate parallel processing as the process takes a long time
     library(doParallel)
-    cl <- makePSOCKcluster(3)
+    cl <- makePSOCKcluster(5)
     registerDoParallel(cl)
     # train the model
     rf_mod_fit <- train(classe ~ .,
